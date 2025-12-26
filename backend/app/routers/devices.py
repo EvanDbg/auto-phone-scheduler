@@ -2,6 +2,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
+from typing import Literal
 
 from app.schemas.device import DeviceInfo
 from app.services.adb import run_adb, run_adb_exec
@@ -18,6 +19,23 @@ class ConnectResponse(BaseModel):
     success: bool
     message: str
     serial: str | None = None
+
+
+class KeyEventRequest(BaseModel):
+    key: Literal["home", "back", "app_switch"]  # 按键类型
+
+
+class SwipeRequest(BaseModel):
+    start_x: int
+    start_y: int
+    end_x: int
+    end_y: int
+    duration: int = 300  # 滑动时长(ms)
+
+
+class TapRequest(BaseModel):
+    x: int
+    y: int
 
 
 async def get_connected_devices() -> list[DeviceInfo]:
@@ -179,3 +197,51 @@ async def disconnect_device(serial: str):
             success=False,
             message=f"断开错误: {str(e)}",
         )
+
+
+# Android 按键码映射
+KEY_CODES = {
+    "home": 3,       # KEYCODE_HOME
+    "back": 4,       # KEYCODE_BACK
+    "app_switch": 187,  # KEYCODE_APP_SWITCH (最近任务)
+}
+
+
+@router.post("/{serial}/keyevent")
+async def send_key_event(serial: str, request: KeyEventRequest):
+    """发送按键事件到设备"""
+    key_code = KEY_CODES.get(request.key)
+    if key_code is None:
+        raise HTTPException(status_code=400, detail=f"不支持的按键: {request.key}")
+
+    try:
+        await run_adb("shell", "input", "keyevent", str(key_code), serial=serial)
+        return {"success": True, "message": f"已发送 {request.key} 按键"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"发送按键失败: {str(e)}")
+
+
+@router.post("/{serial}/swipe")
+async def send_swipe(serial: str, request: SwipeRequest):
+    """发送滑动事件到设备"""
+    try:
+        await run_adb(
+            "shell", "input", "swipe",
+            str(request.start_x), str(request.start_y),
+            str(request.end_x), str(request.end_y),
+            str(request.duration),
+            serial=serial,
+        )
+        return {"success": True, "message": "滑动完成"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"滑动失败: {str(e)}")
+
+
+@router.post("/{serial}/tap")
+async def send_tap(serial: str, request: TapRequest):
+    """发送点击事件到设备"""
+    try:
+        await run_adb("shell", "input", "tap", str(request.x), str(request.y), serial=serial)
+        return {"success": True, "message": "点击完成"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"点击失败: {str(e)}")

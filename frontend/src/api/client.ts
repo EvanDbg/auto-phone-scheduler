@@ -72,6 +72,15 @@ export const devicesApi = {
   disconnect: (serial: string) => api.post<ConnectResponse>(`/devices/disconnect/${encodeURIComponent(serial)}`).then(r => r.data),
   getStreamUrl: (serial: string) => `${api.defaults.baseURL}/devices/${serial}/stream`,
   getScreenshotUrl: (serial: string) => `${api.defaults.baseURL}/devices/${serial}/screenshot`,
+  // 设备控制
+  sendKeyEvent: (serial: string, key: 'home' | 'back' | 'app_switch') =>
+    api.post(`/devices/${encodeURIComponent(serial)}/keyevent`, { key }).then(r => r.data),
+  sendSwipe: (serial: string, startX: number, startY: number, endX: number, endY: number, duration = 300) =>
+    api.post(`/devices/${encodeURIComponent(serial)}/swipe`, {
+      start_x: startX, start_y: startY, end_x: endX, end_y: endY, duration,
+    }).then(r => r.data),
+  sendTap: (serial: string, x: number, y: number) =>
+    api.post(`/devices/${encodeURIComponent(serial)}/tap`, { x, y }).then(r => r.data),
 }
 
 // Settings

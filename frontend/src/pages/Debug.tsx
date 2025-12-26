@@ -16,8 +16,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { ScrcpyPlayer } from '@/components/ScrcpyPlayer'
 import { ChatItemCard, type ChatItem, type StepInfo, parseActionToObject } from '@/components/ChatSteps'
-import { devicesApi } from '@/api/client'
-import { Send, Smartphone, Loader2, AlertTriangle, Bot } from 'lucide-react'
+import { devicesApi, settingsApi } from '@/api/client'
+import { Send, Smartphone, Loader2, AlertTriangle, Bot, Home, ArrowLeft, LayoutGrid, Hand } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
@@ -35,6 +36,8 @@ export function Debug() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [streamKey, setStreamKey] = useState(0)
   const [useFallback, setUseFallback] = useState(false)
+  // 触控模式
+  const [touchEnabled, setTouchEnabled] = useState(true)
   // 敏感操作确认对话框状态
   const [sensitiveAction, setSensitiveAction] = useState<SensitiveAction | null>(null)
   const [pendingCommand, setPendingCommand] = useState<string | null>(null)
@@ -49,7 +52,21 @@ export function Debug() {
     refetchInterval: 5000,
   })
 
-  const activeDevice = devices.find(d => d.status === 'device')
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: settingsApi.get,
+  })
+
+  // 获取当前设备（优先使用全局选定的设备，否则回退到第一个在线设备）
+  const activeDevice = (() => {
+    const onlineDevices = devices.filter(d => d.status === 'device')
+    if (!onlineDevices.length) return undefined
+    if (settings?.selected_device) {
+      const selected = onlineDevices.find(d => d.serial === settings.selected_device)
+      if (selected) return selected
+    }
+    return onlineDevices[0]
+  })()
 
   // 滚动到底部
   useEffect(() => {
@@ -309,7 +326,36 @@ export function Debug() {
     }])
   }
 
+  // 设备控制操作
+  const handleKeyEvent = async (key: 'home' | 'back' | 'app_switch') => {
+    if (!activeDevice) return
+    try {
+      await devicesApi.sendKeyEvent(activeDevice.serial, key)
+    } catch (err) {
+      console.error(`发送 ${key} 按键失败:`, err)
+    }
+  }
+
+  const handleSwipe = async (startX: number, startY: number, endX: number, endY: number) => {
+    if (!activeDevice) return
+    try {
+      await devicesApi.sendSwipe(activeDevice.serial, startX, startY, endX, endY)
+    } catch (err) {
+      console.error('发送滑动失败:', err)
+    }
+  }
+
+  const handleTap = async (x: number, y: number) => {
+    if (!activeDevice) return
+    try {
+      await devicesApi.sendTap(activeDevice.serial, x, y)
+    } catch (err) {
+      console.error('发送点击失败:', err)
+    }
+  }
+
   return (
+    <TooltipProvider>
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">调试控制台</h1>
@@ -409,11 +455,55 @@ export function Debug() {
                 <Smartphone className="h-4 w-4" />
                 实时画面
               </CardTitle>
-              {activeDevice && (
-                <Button variant="ghost" size="sm" onClick={() => setStreamKey(k => k + 1)}>
-                  刷新
-                </Button>
-              )}
+              <div className="flex items-center gap-1">
+                {activeDevice && (
+                  <>
+                    {/* 触控模式开关 */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={touchEnabled ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => setTouchEnabled(!touchEnabled)}
+                        >
+                          <Hand className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {touchEnabled ? '触控已启用（点击禁用）' : '触控已禁用（点击启用）'}
+                      </TooltipContent>
+                    </Tooltip>
+                    {/* 导航按钮 */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('back')}>
+                          <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>返回</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('home')}>
+                          <Home className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>主页</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('app_switch')}>
+                          <LayoutGrid className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>最近任务</TooltipContent>
+                    </Tooltip>
+                    <Button variant="ghost" size="sm" onClick={() => setStreamKey(k => k + 1)}>
+                      刷新
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex items-center justify-center p-4 bg-muted/30 overflow-hidden">
@@ -433,6 +523,9 @@ export function Debug() {
                   className="max-h-full"
                   onFallback={() => setUseFallback(true)}
                   fallbackTimeout={8000}
+                  enableTouch={touchEnabled}
+                  onSwipe={handleSwipe}
+                  onTap={handleTap}
                 />
               )
             ) : (
@@ -471,5 +564,6 @@ export function Debug() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </TooltipProvider>
   )
 }

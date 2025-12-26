@@ -91,7 +91,6 @@ class SchedulerService:
     def __init__(self):
         self.scheduler = AsyncIOScheduler()
         self.autoglm = AutoGLMService()
-        self.recorder = RecorderService()
         self.notifier = NotifierService()
 
     @classmethod
@@ -194,37 +193,54 @@ class SchedulerService:
         return devices
 
     async def _get_selected_device(
-        self, session: "AsyncSession"
-    ) -> tuple[str | None, str | None]:
-        """获取用户选定的设备，如未选定则返回第一个可用设备
+        self, session: "AsyncSession", task_device_serial: str | None = None
+    ) -> tuple[str | None, str | None, str | None]:
+        """获取任务执行设备
 
-        优先使用用户在设置中选定的设备，如果该设备不可用则回退到第一个在线设备
+        优先级：任务指定设备 > 全局设置设备 > 第一个在线设备
+        如果指定的设备不可用则直接失败，不回退
+
+        Args:
+            session: 数据库会话
+            task_device_serial: 任务指定的设备 serial
+
+        Returns:
+            (serial, model, error_msg) 元组
+            - 成功时返回 (serial, model, None)
+            - 失败时返回 (None, None, error_msg)
         """
         from sqlalchemy import select as sql_select
         from app.models.settings import SystemSettings
 
-        # 获取用户选定的设备
-        result = await session.execute(
-            sql_select(SystemSettings).where(SystemSettings.key == "selected_device")
-        )
-        setting = result.scalar_one_or_none()
-        selected_serial = setting.value if setting else None
-
-        # 获取所有设备
+        # 获取所有在线设备
         devices = await self._get_all_devices()
         online_devices = [(s, m) for s, status, m in devices if status == "device"]
 
         if not online_devices:
-            return None, None
+            return None, None, "未找到可用设备"
 
-        # 如果有选定的设备且在线，使用它
-        if selected_serial:
+        # 1. 优先使用任务指定的设备
+        if task_device_serial:
             for serial, model in online_devices:
-                if serial == selected_serial:
-                    return serial, model
+                if serial == task_device_serial:
+                    return serial, model, None
+            return None, None, f"任务指定设备 {task_device_serial} 不可用"
 
-        # 否则返回第一个在线设备
-        return online_devices[0]
+        # 2. 其次使用全局设置的设备
+        result = await session.execute(
+            sql_select(SystemSettings).where(SystemSettings.key == "selected_device")
+        )
+        setting = result.scalar_one_or_none()
+        global_serial = setting.value if setting else None
+
+        if global_serial:
+            for serial, model in online_devices:
+                if serial == global_serial:
+                    return serial, model, None
+            return None, None, f"全局设置设备 {global_serial} 不可用"
+
+        # 3. 回退到第一个在线设备
+        return online_devices[0][0], online_devices[0][1], None
 
     async def _get_first_device(self) -> tuple[str | None, str | None]:
         """获取第一个已连接的设备信息（兼容旧调用）"""
@@ -253,18 +269,31 @@ class SchedulerService:
             result = await session.execute(sql_select(SystemSettings))
             db_settings = {s.key: s.value for s in result.scalars().all()}
 
-            # 获取设备信息（优先使用用户选定的设备）
-            device_serial, device_model = await self._get_selected_device(session)
+            # 获取设备信息（优先使用任务指定设备）
+            device_serial, device_model, device_error = await self._get_selected_device(
+                session, task_device_serial=task.device_serial
+            )
 
-            # 创建执行记录
+            # 创建执行记录（包含设备信息）
             execution = Execution(
                 task_id=task_id,
                 status=ExecutionStatus.RUNNING,
                 started_at=datetime.utcnow(),
+                device_serial=device_serial,  # 保存实际使用的设备
             )
             session.add(execution)
             await session.commit()
             await session.refresh(execution)
+
+            # 检查设备是否可用
+            if not device_serial:
+                execution.status = ExecutionStatus.FAILED
+                execution.finished_at = datetime.utcnow()
+                execution.error_message = device_error
+                await session.commit()
+                # 发送失败通知
+                await self._send_notifications(session, task, execution)
+                return
 
             base_url = db_settings.get("autoglm_base_url") or settings.autoglm_base_url
             api_key = db_settings.get("autoglm_api_key") or settings.autoglm_api_key
@@ -278,9 +307,12 @@ class SchedulerService:
             )
             cmd = self.autoglm.apply_prompt_rules(task.command, prefix_prompt, suffix_prompt)
 
+            # 创建带设备 serial 的录制服务
+            recorder = RecorderService(device_serial=device_serial)
+
             try:
                 # 开始录屏
-                recording_path = await self.recorder.start_recording(execution.id)
+                recording_path = await recorder.start_recording(execution.id)
 
                 # 直接使用 PhoneAgent
                 from phone_agent import PhoneAgent
@@ -397,7 +429,7 @@ class SchedulerService:
                 error_msg = result_holder["error_msg"]
 
                 # 停止录屏并获取实际的录制文件路径
-                actual_recording_path = await self.recorder.stop_recording()
+                actual_recording_path = await recorder.stop_recording()
 
                 # 更新执行记录
                 execution.status = ExecutionStatus.SUCCESS if success else ExecutionStatus.FAILED
@@ -415,7 +447,7 @@ class SchedulerService:
 
             except Exception as e:
                 # 停止录屏
-                await self.recorder.stop_recording()
+                await recorder.stop_recording()
 
                 # 更新执行记录为失败
                 execution.status = ExecutionStatus.FAILED
@@ -566,12 +598,33 @@ class SchedulerService:
             if not execution:
                 return
 
-            # 获取设备信息（优先使用用户选定的设备）
-            device_serial, device_model = await self._get_selected_device(session)
-
             # 从数据库加载设置（参考 debug.py 的方式）
             result = await session.execute(sql_select(SystemSettings))
             db_settings = {s.key: s.value for s in result.scalars().all()}
+
+            # 获取设备信息（优先使用任务指定设备）
+            device_serial, device_model, device_error = await self._get_selected_device(
+                session, task_device_serial=task.device_serial
+            )
+
+            # 更新执行记录的设备信息
+            execution.device_serial = device_serial
+            await session.commit()
+
+            # 检查设备是否可用
+            if not device_serial:
+                execution.status = ExecutionStatus.FAILED
+                execution.finished_at = datetime.utcnow()
+                execution.error_message = device_error
+                await session.commit()
+                # 发布失败事件到 SSE
+                await event_bus.publish(execution_id, "done", {
+                    "success": False,
+                    "message": device_error,
+                })
+                # 发送失败通知
+                await self._send_notifications(session, task, execution)
+                return
 
             base_url = db_settings.get("autoglm_base_url") or settings.autoglm_base_url
             api_key = db_settings.get("autoglm_api_key") or settings.autoglm_api_key
@@ -585,9 +638,12 @@ class SchedulerService:
             )
             cmd = self.autoglm.apply_prompt_rules(task.command, prefix_prompt, suffix_prompt)
 
+            # 创建带设备 serial 的录制服务
+            recorder = RecorderService(device_serial=device_serial)
+
             try:
                 # 开始录屏
-                recording_path = await self.recorder.start_recording(execution.id)
+                recording_path = await recorder.start_recording(execution.id)
 
                 # 直接使用 PhoneAgent，实现实时步骤保存
                 from phone_agent import PhoneAgent
@@ -692,7 +748,7 @@ class SchedulerService:
                 await publisher_task
 
                 # 停止录屏并获取实际的录制文件路径
-                actual_recording_path = await self.recorder.stop_recording()
+                actual_recording_path = await recorder.stop_recording()
 
                 # 更新执行记录
                 execution.status = ExecutionStatus.SUCCESS if success else ExecutionStatus.FAILED
@@ -719,7 +775,7 @@ class SchedulerService:
                 stop_event.set()
 
                 # 停止录屏
-                await self.recorder.stop_recording()
+                await recorder.stop_recording()
 
                 # 更新执行记录为失败
                 execution.status = ExecutionStatus.FAILED

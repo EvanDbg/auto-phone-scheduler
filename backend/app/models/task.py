@@ -19,6 +19,8 @@ class Task(Base):
     notification_channel_ids: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
     # 敏感操作自动确认（定时任务默认自动确认，调试模式需要手动确认）
     auto_confirm_sensitive: Mapped[bool] = mapped_column(Boolean, default=True)
+    # 指定执行设备 serial，为空则使用全局设置的设备
+    device_serial: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow

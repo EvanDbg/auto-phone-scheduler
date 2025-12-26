@@ -33,15 +33,26 @@ async def execute_stream(request: ExecuteRequest, db: AsyncSession = Depends(get
     if not command.strip():
         raise HTTPException(status_code=400, detail="指令不能为空")
 
-    # 获取已连接设备
-    devices = await get_connected_devices()
-    active_device = next((d for d in devices if d.status == "device"), None)
-    if not active_device:
-        raise HTTPException(status_code=400, detail="未找到已连接的设备")
-
     # 从数据库加载设置
     result = await db.execute(select(SystemSettings))
     db_settings = {s.key: s.value for s in result.scalars().all()}
+
+    # 获取已连接设备
+    devices = await get_connected_devices()
+    online_devices = [d for d in devices if d.status == "device"]
+    if not online_devices:
+        raise HTTPException(status_code=400, detail="未找到已连接的设备")
+
+    # 优先使用用户选定的设备（严格模式：选定设备不可用则失败）
+    selected_serial = db_settings.get("selected_device")
+    active_device = None
+    if selected_serial:
+        active_device = next((d for d in online_devices if d.serial == selected_serial), None)
+        if not active_device:
+            raise HTTPException(status_code=400, detail=f"指定设备 {selected_serial} 不可用")
+    else:
+        # 未选择设备，使用第一个在线设备
+        active_device = online_devices[0]
 
     base_url = db_settings.get("autoglm_base_url") or settings.autoglm_base_url
     api_key = db_settings.get("autoglm_api_key") or settings.autoglm_api_key

@@ -9,6 +9,7 @@ export interface Task {
   notify_on_failure: boolean
   notification_channel_ids: number[] | null  // 空或 null 表示使用所有启用的渠道
   auto_confirm_sensitive: boolean  // 敏感操作自动确认
+  device_serial: string | null  // 指定执行设备，为空则使用全局设置
   created_at: string
   updated_at: string
   next_run: string | null
@@ -24,6 +25,7 @@ export interface TaskCreate {
   notify_on_failure?: boolean
   notification_channel_ids?: number[] | null
   auto_confirm_sensitive?: boolean  // 敏感操作自动确认
+  device_serial?: string | null  // 指定执行设备
 }
 
 export interface TaskUpdate {
@@ -35,6 +37,7 @@ export interface TaskUpdate {
   notify_on_success?: boolean
   notify_on_failure?: boolean
   notification_channel_ids?: number[] | null
+  device_serial?: string | null
 }
 
 export type ExecutionStatus = 'pending' | 'running' | 'success' | 'failed'
@@ -61,6 +64,7 @@ export interface ExecutionStep {
 export interface ExecutionDetail extends Execution {
   steps: ExecutionStep[] | null
   recording_path: string | null
+  device_serial: string | null  // 执行任务的设备 serial
 }
 
 export type NotificationType = 'dingtalk' | 'telegram'

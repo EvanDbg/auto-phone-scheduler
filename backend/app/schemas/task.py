@@ -12,6 +12,7 @@ class TaskBase(BaseModel):
     notify_on_failure: bool = True
     notification_channel_ids: list[int] | None = None  # 空或 None 表示使用所有启用的渠道
     auto_confirm_sensitive: bool = True  # 敏感操作自动确认
+    device_serial: str | None = None  # 指定执行设备，为空则使用全局设置
 
 
 class TaskCreate(TaskBase):
@@ -28,6 +29,7 @@ class TaskUpdate(BaseModel):
     notify_on_failure: bool | None = None
     notification_channel_ids: list[int] | None = None
     auto_confirm_sensitive: bool | None = None
+    device_serial: str | None = None
 
 
 class TaskResponse(TaskBase):

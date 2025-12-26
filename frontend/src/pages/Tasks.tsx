@@ -28,9 +28,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { tasksApi, taskTemplatesApi, notificationsApi, executionsApi } from '@/api/client'
+import { tasksApi, taskTemplatesApi, notificationsApi, executionsApi, devicesApi } from '@/api/client'
 import { formatDateTime } from '@/lib/utils'
 import type { Task, TaskCreate, TaskTemplate, Execution } from '@/types'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Plus,
   Play,
@@ -48,6 +55,7 @@ import {
   ChevronRight,
   ListTodo,
   History,
+  Smartphone,
 } from 'lucide-react'
 
 // 图标映射
@@ -284,6 +292,11 @@ function TaskList() {
     queryFn: notificationsApi.list,
   })
 
+  const { data: devices = [] } = useQuery({
+    queryKey: ['devices'],
+    queryFn: devicesApi.list,
+  })
+
   const createMutation = useMutation({
     mutationFn: tasksApi.create,
     onSuccess: () => {
@@ -328,6 +341,7 @@ function TaskList() {
       notify_on_failure: true,
       notification_channel_ids: null,
       auto_confirm_sensitive: true,
+      device_serial: null,
     })
     setIsDialogOpen(true)
   }
@@ -347,6 +361,7 @@ function TaskList() {
       notify_on_failure: true,
       notification_channel_ids: null,
       auto_confirm_sensitive: true,
+      device_serial: null,
     })
     setIsTemplateDialogOpen(false)
     setIsDialogOpen(true)
@@ -364,6 +379,7 @@ function TaskList() {
       notify_on_failure: task.notify_on_failure,
       notification_channel_ids: task.notification_channel_ids,
       auto_confirm_sensitive: task.auto_confirm_sensitive,
+      device_serial: task.device_serial,
     })
     setIsDialogOpen(true)
   }
@@ -656,6 +672,43 @@ function TaskList() {
                   setFormData({ ...formData, auto_confirm_sensitive: checked })
                 }
               />
+            </div>
+
+            {/* 执行设备选择 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-muted-foreground" />
+                <Label>执行设备</Label>
+                <span className="text-xs text-muted-foreground">
+                  (不选择则使用全局设置的设备)
+                </span>
+              </div>
+              <Select
+                value={formData.device_serial || '__global__'}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    device_serial: value === '__global__' ? null : value,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="使用全局设置的设备" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__global__">使用全局设置的设备</SelectItem>
+                  {devices
+                    .filter((d) => d.status === 'device')
+                    .map((device) => (
+                      <SelectItem key={device.serial} value={device.serial}>
+                        {device.model || device.serial}
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ({device.serial})
+                        </span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center justify-between">
