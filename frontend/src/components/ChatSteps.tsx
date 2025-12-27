@@ -2,7 +2,7 @@
  * 聊天步骤展示组件
  * 在调试控制台和执行历史详情页面共享使用
  */
-import { Bot, MousePointer, Play, Hand, CheckCircle, XCircle, AlertTriangle, Monitor, Unlock } from 'lucide-react'
+import { Bot, MousePointer, Play, Hand, CheckCircle, XCircle, AlertTriangle, Monitor } from 'lucide-react'
 
 export interface StepInfo {
   step: number

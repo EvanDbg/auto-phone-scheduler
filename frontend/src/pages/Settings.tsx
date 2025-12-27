@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { settingsApi, devicesApi, notificationsApi, appPackagesApi, deviceConfigsApi } from '@/api/client'
-import type { NotificationChannel, NotificationChannelCreate, NotificationType, AppPackage, AppPackageCreate, DeviceConfig, DeviceConfigUpdate } from '@/types'
+import type { NotificationChannel, NotificationChannelCreate, NotificationType, AppPackage, AppPackageCreate, DeviceConfigUpdate } from '@/types'
 import {
   RefreshCw,
   Smartphone,
