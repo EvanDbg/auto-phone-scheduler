@@ -36,8 +36,8 @@
 ### 录像回放
 ![录像回放](docs/images/history.png)
 
-### 网页爬虫
-![网页爬虫](docs/images/forum.png)
+### 网页浏览
+![网页浏览](docs/images/forum.png)
 
 更多功能等你来探索！
 

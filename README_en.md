@@ -35,8 +35,8 @@ Daily app check-ins, scheduled attendance, automated browsing tasks, scheduled c
 ### Recording Playback
 ![Recording Playback](docs/images/history.png)
 
-### Web Crawler
-![Web Crawler](docs/images/forum.png)
+### Web Viewer
+![Web Viewer](docs/images/forum.png)
 
 More features waiting for you to explore!
 
