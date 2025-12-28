@@ -316,11 +316,17 @@ function DeviceSettings() {
         setRemoteAddress('')
         queryClient.invalidateQueries({ queryKey: ['devices'] })
       } else {
-        toast.error(data.message)
+        toast.error(data.message, {
+          description: 'Android 11+ 无线调试需要先在开发者选项中进行配对：开发者选项 → 无线调试 → 使用配对码配对设备',
+          duration: 8000,
+        })
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || '连接失败')
+      toast.error(error.message || '连接失败', {
+        description: 'Android 11+ 无线调试需要先在开发者选项中进行配对',
+        duration: 8000,
+      })
     },
   })
 
@@ -532,7 +538,7 @@ function DeviceSettings() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            WiFi 连接: 确保设备与电脑在同一局域网，并已执行 adb tcpip 5555
+            WiFi 连接: 确保设备与电脑在同一局域网。Android 11+ 需先在「开发者选项 → 无线调试」中配对设备；Android 10 及以下需执行 adb tcpip 5555
           </p>
 
           {/* 设备列表 */}
