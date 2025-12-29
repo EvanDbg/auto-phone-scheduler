@@ -224,11 +224,10 @@ function ApiSettings() {
 
             {testResult && (
               <div
-                className={`p-4 rounded-lg border ${
-                  testResult.success
-                    ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
-                    : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
-                }`}
+                className={`p-4 rounded-lg border ${testResult.success
+                  ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                  : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+                  }`}
               >
                 <div className="flex items-center gap-2 mb-2">
                   {testResult.success ? (
@@ -237,11 +236,10 @@ function ApiSettings() {
                     <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                   )}
                   <span
-                    className={`font-medium ${
-                      testResult.success
-                        ? 'text-green-700 dark:text-green-300'
-                        : 'text-red-700 dark:text-red-300'
-                    }`}
+                    className={`font-medium ${testResult.success
+                      ? 'text-green-700 dark:text-green-300'
+                      : 'text-red-700 dark:text-red-300'
+                      }`}
                   >
                     {testResult.message}
                   </span>
@@ -283,10 +281,18 @@ function DeviceSettings() {
     unlock_end_x: undefined,
     unlock_end_y: undefined,
     unlock_duration: 300,
+    unlock_password: undefined,
+    password_swipe_enabled: false,
+    password_swipe_start_x: undefined,
+    password_swipe_start_y: undefined,
+    password_swipe_end_x: undefined,
+    password_swipe_end_y: undefined,
+    password_swipe_duration: 300,
   })
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
   const [isLoadingScreenshot, setIsLoadingScreenshot] = useState(false)
   const [markingMode, setMarkingMode] = useState<'start' | 'end' | null>(null)
+  const [passwordSwipeMarkingMode, setPasswordSwipeMarkingMode] = useState<'start' | 'end' | null>(null)
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -396,11 +402,18 @@ function DeviceSettings() {
       serial: string
       data: {
         unlock_type: string
-        unlock_start_x: number
-        unlock_start_y: number
+        unlock_start_x?: number
+        unlock_start_y?: number
         unlock_end_x?: number
         unlock_end_y?: number
-        unlock_duration: number
+        unlock_duration?: number
+        unlock_password?: string
+        password_swipe_enabled?: boolean
+        password_swipe_start_x?: number
+        password_swipe_start_y?: number
+        password_swipe_end_x?: number
+        password_swipe_end_y?: number
+        password_swipe_duration?: number
       }
     }) => deviceConfigsApi.testUnlock(serial, data),
     onSuccess: (data) => {
@@ -429,6 +442,13 @@ function DeviceSettings() {
         unlock_end_x: existingConfig.unlock_end_x ?? undefined,
         unlock_end_y: existingConfig.unlock_end_y ?? undefined,
         unlock_duration: existingConfig.unlock_duration,
+        unlock_password: existingConfig.unlock_password || undefined,
+        password_swipe_enabled: existingConfig.password_swipe_enabled ?? false,
+        password_swipe_start_x: existingConfig.password_swipe_start_x ?? undefined,
+        password_swipe_start_y: existingConfig.password_swipe_start_y ?? undefined,
+        password_swipe_end_x: existingConfig.password_swipe_end_x ?? undefined,
+        password_swipe_end_y: existingConfig.password_swipe_end_y ?? undefined,
+        password_swipe_duration: existingConfig.password_swipe_duration ?? 300,
       })
     } else {
       setConfigFormData({
@@ -441,6 +461,13 @@ function DeviceSettings() {
         unlock_end_x: undefined,
         unlock_end_y: undefined,
         unlock_duration: 300,
+        unlock_password: undefined,
+        password_swipe_enabled: false,
+        password_swipe_start_x: undefined,
+        password_swipe_start_y: undefined,
+        password_swipe_end_x: undefined,
+        password_swipe_end_y: undefined,
+        password_swipe_duration: 300,
       })
     }
     setScreenshotUrl(null)
@@ -468,7 +495,7 @@ function DeviceSettings() {
   }
 
   const handleScreenshotClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    if (!markingMode) return
+    if (!markingMode && !passwordSwipeMarkingMode) return
 
     const img = e.currentTarget
     const rect = img.getBoundingClientRect()
@@ -477,6 +504,28 @@ function DeviceSettings() {
     const x = Math.round((e.clientX - rect.left) * scaleX)
     const y = Math.round((e.clientY - rect.top) * scaleY)
 
+    // 处理密码上滑坐标标注
+    if (passwordSwipeMarkingMode === 'start') {
+      setConfigFormData({
+        ...configFormData,
+        password_swipe_start_x: x,
+        password_swipe_start_y: y,
+      })
+      toast.success(`上滑起点坐标已设置: (${x}, ${y})`)
+      setPasswordSwipeMarkingMode(null)
+      return
+    } else if (passwordSwipeMarkingMode === 'end') {
+      setConfigFormData({
+        ...configFormData,
+        password_swipe_end_x: x,
+        password_swipe_end_y: y,
+      })
+      toast.success(`上滑终点坐标已设置: (${x}, ${y})`)
+      setPasswordSwipeMarkingMode(null)
+      return
+    }
+
+    // 处理滑动解锁坐标标注
     if (markingMode === 'start') {
       setConfigFormData({
         ...configFormData,
@@ -517,9 +566,8 @@ function DeviceSettings() {
               disabled={refreshDevicesMutation.isPending}
             >
               <RefreshCw
-                className={`h-4 w-4 mr-2 ${
-                  refreshDevicesMutation.isPending ? 'animate-spin' : ''
-                }`}
+                className={`h-4 w-4 mr-2 ${refreshDevicesMutation.isPending ? 'animate-spin' : ''
+                  }`}
               />
               刷新
             </Button>
@@ -573,11 +621,10 @@ function DeviceSettings() {
                 return (
                   <div
                     key={device.serial}
-                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${
-                      isSelected
-                        ? 'border-primary bg-primary/5'
-                        : 'border-transparent bg-muted/50 hover:bg-muted'
-                    }`}
+                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${isSelected
+                      ? 'border-primary bg-primary/5'
+                      : 'border-transparent bg-muted/50 hover:bg-muted'
+                      }`}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {isNetworkDevice ? (
@@ -735,7 +782,7 @@ function DeviceSettings() {
                     <Label>解锁方式</Label>
                     <Select
                       value={configFormData.unlock_type || ''}
-                      onValueChange={(value: 'swipe' | 'longpress') =>
+                      onValueChange={(value: 'swipe' | 'longpress' | 'password') =>
                         setConfigFormData({ ...configFormData, unlock_type: value })
                       }
                     >
@@ -745,92 +792,342 @@ function DeviceSettings() {
                       <SelectContent>
                         <SelectItem value="swipe">滑动解锁</SelectItem>
                         <SelectItem value="longpress">长按解锁</SelectItem>
+                        <SelectItem value="password">密码解锁</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {configFormData.unlock_type && (
                     <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>起点 X</Label>
-                          <Input
-                            type="number"
-                            value={configFormData.unlock_start_x ?? ''}
-                            onChange={(e) =>
-                              setConfigFormData({
-                                ...configFormData,
-                                unlock_start_x: e.target.value ? parseInt(e.target.value) : undefined,
-                              })
-                            }
-                            placeholder="0"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>起点 Y</Label>
-                          <Input
-                            type="number"
-                            value={configFormData.unlock_start_y ?? ''}
-                            onChange={(e) =>
-                              setConfigFormData({
-                                ...configFormData,
-                                unlock_start_y: e.target.value ? parseInt(e.target.value) : undefined,
-                              })
-                            }
-                            placeholder="0"
-                          />
-                        </div>
-                      </div>
-
-                      {configFormData.unlock_type === 'swipe' && (
-                        <div className="grid grid-cols-2 gap-4">
+                      {/* 密码解锁配置 */}
+                      {configFormData.unlock_type === 'password' && (
+                        <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label>终点 X</Label>
+                            <Label>解锁密码</Label>
                             <Input
-                              type="number"
-                              value={configFormData.unlock_end_x ?? ''}
+                              type="password"
+                              value={configFormData.unlock_password ?? ''}
                               onChange={(e) =>
                                 setConfigFormData({
                                   ...configFormData,
-                                  unlock_end_x: e.target.value ? parseInt(e.target.value) : undefined,
+                                  unlock_password: e.target.value || undefined,
                                 })
                               }
-                              placeholder="0"
+                              placeholder="输入数字密码"
                             />
+                            <p className="text-xs text-muted-foreground">
+                              建议使用简单的数字 PIN 码，密码将以明文存储
+                            </p>
                           </div>
-                          <div className="space-y-2">
-                            <Label>终点 Y</Label>
-                            <Input
-                              type="number"
-                              value={configFormData.unlock_end_y ?? ''}
-                              onChange={(e) =>
-                                setConfigFormData({
-                                  ...configFormData,
-                                  unlock_end_y: e.target.value ? parseInt(e.target.value) : undefined,
-                                })
-                              }
-                              placeholder="0"
-                            />
+
+                          {/* 上滑显示密码界面开关 */}
+                          <div className="border rounded-lg p-4 space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label className="text-sm font-medium">上滑显示密码界面</Label>
+                                <p className="text-xs text-muted-foreground">
+                                  部分锁屏需要先上滑才能显示密码输入界面
+                                </p>
+                              </div>
+                              <Switch
+                                checked={configFormData.password_swipe_enabled ?? false}
+                                onCheckedChange={(checked) =>
+                                  setConfigFormData({ ...configFormData, password_swipe_enabled: checked })
+                                }
+                              />
+                            </div>
+
+                            {configFormData.password_swipe_enabled && (
+                              <>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>起点 X</Label>
+                                    <Input
+                                      type="number"
+                                      value={configFormData.password_swipe_start_x ?? ''}
+                                      onChange={(e) =>
+                                        setConfigFormData({
+                                          ...configFormData,
+                                          password_swipe_start_x: e.target.value ? parseInt(e.target.value) : undefined,
+                                        })
+                                      }
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>起点 Y</Label>
+                                    <Input
+                                      type="number"
+                                      value={configFormData.password_swipe_start_y ?? ''}
+                                      onChange={(e) =>
+                                        setConfigFormData({
+                                          ...configFormData,
+                                          password_swipe_start_y: e.target.value ? parseInt(e.target.value) : undefined,
+                                        })
+                                      }
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>终点 X</Label>
+                                    <Input
+                                      type="number"
+                                      value={configFormData.password_swipe_end_x ?? ''}
+                                      onChange={(e) =>
+                                        setConfigFormData({
+                                          ...configFormData,
+                                          password_swipe_end_x: e.target.value ? parseInt(e.target.value) : undefined,
+                                        })
+                                      }
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>终点 Y</Label>
+                                    <Input
+                                      type="number"
+                                      value={configFormData.password_swipe_end_y ?? ''}
+                                      onChange={(e) =>
+                                        setConfigFormData({
+                                          ...configFormData,
+                                          password_swipe_end_y: e.target.value ? parseInt(e.target.value) : undefined,
+                                        })
+                                      }
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>持续时间 (毫秒)</Label>
+                                  <Input
+                                    type="number"
+                                    value={configFormData.password_swipe_duration ?? 300}
+                                    onChange={(e) =>
+                                      setConfigFormData({
+                                        ...configFormData,
+                                        password_swipe_duration: parseInt(e.target.value) || 300,
+                                      })
+                                    }
+                                    min={100}
+                                    max={3000}
+                                  />
+                                </div>
+
+                                {/* 截图坐标标注 */}
+                                <div className="space-y-3 border rounded-lg p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <MousePointer className="h-4 w-4" />
+                                      <span className="text-sm font-medium">在截图上标注坐标</span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={loadScreenshot}
+                                      disabled={isLoadingScreenshot}
+                                    >
+                                      {isLoadingScreenshot ? '加载中...' : '获取锁屏截图'}
+                                    </Button>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    提示: 获取锁屏截图后，点击截图标注上滑起点和终点
+                                  </p>
+
+                                  {screenshotUrl && (
+                                    <div className="space-y-2">
+                                      <div className="flex gap-2">
+                                        <Button
+                                          type="button"
+                                          variant={passwordSwipeMarkingMode === 'start' ? 'default' : 'outline'}
+                                          size="sm"
+                                          onClick={() => setPasswordSwipeMarkingMode(passwordSwipeMarkingMode === 'start' ? null : 'start')}
+                                        >
+                                          标注起点
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant={passwordSwipeMarkingMode === 'end' ? 'default' : 'outline'}
+                                          size="sm"
+                                          onClick={() => setPasswordSwipeMarkingMode(passwordSwipeMarkingMode === 'end' ? null : 'end')}
+                                        >
+                                          标注终点
+                                        </Button>
+                                      </div>
+                                      {passwordSwipeMarkingMode && (
+                                        <p className="text-sm text-primary">
+                                          请在下方截图上点击选择{passwordSwipeMarkingMode === 'start' ? '起点' : '终点'}位置
+                                        </p>
+                                      )}
+                                      <div className="relative border rounded-lg overflow-hidden bg-muted">
+                                        <img
+                                          src={screenshotUrl}
+                                          alt="设备截图"
+                                          className={`max-w-full h-auto max-h-[400px] object-contain mx-auto ${passwordSwipeMarkingMode ? 'cursor-crosshair' : ''
+                                            }`}
+                                          onClick={handleScreenshotClick}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       )}
 
-                      <div className="space-y-2">
-                        <Label>持续时间 (毫秒)</Label>
-                        <Input
-                          type="number"
-                          value={configFormData.unlock_duration ?? 300}
-                          onChange={(e) =>
-                            setConfigFormData({
-                              ...configFormData,
-                              unlock_duration: parseInt(e.target.value) || 300,
-                            })
-                          }
-                          min={100}
-                          max={3000}
-                        />
-                      </div>
+                      {/* 滑动/长按解锁配置 */}
+                      {(configFormData.unlock_type === 'swipe' || configFormData.unlock_type === 'longpress') && (
+                        <>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>起点 X</Label>
+                              <Input
+                                type="number"
+                                value={configFormData.unlock_start_x ?? ''}
+                                onChange={(e) =>
+                                  setConfigFormData({
+                                    ...configFormData,
+                                    unlock_start_x: e.target.value ? parseInt(e.target.value) : undefined,
+                                  })
+                                }
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>起点 Y</Label>
+                              <Input
+                                type="number"
+                                value={configFormData.unlock_start_y ?? ''}
+                                onChange={(e) =>
+                                  setConfigFormData({
+                                    ...configFormData,
+                                    unlock_start_y: e.target.value ? parseInt(e.target.value) : undefined,
+                                  })
+                                }
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
 
+                          {configFormData.unlock_type === 'swipe' && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>终点 X</Label>
+                                <Input
+                                  type="number"
+                                  value={configFormData.unlock_end_x ?? ''}
+                                  onChange={(e) =>
+                                    setConfigFormData({
+                                      ...configFormData,
+                                      unlock_end_x: e.target.value ? parseInt(e.target.value) : undefined,
+                                    })
+                                  }
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>终点 Y</Label>
+                                <Input
+                                  type="number"
+                                  value={configFormData.unlock_end_y ?? ''}
+                                  onChange={(e) =>
+                                    setConfigFormData({
+                                      ...configFormData,
+                                      unlock_end_y: e.target.value ? parseInt(e.target.value) : undefined,
+                                    })
+                                  }
+                                  placeholder="0"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="space-y-2">
+                            <Label>持续时间 (毫秒)</Label>
+                            <Input
+                              type="number"
+                              value={configFormData.unlock_duration ?? 300}
+                              onChange={(e) =>
+                                setConfigFormData({
+                                  ...configFormData,
+                                  unlock_duration: parseInt(e.target.value) || 300,
+                                })
+                              }
+                              min={100}
+                              max={3000}
+                            />
+                          </div>
+
+                          {/* 截图坐标标注 */}
+                          <div className="space-y-3 border rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <MousePointer className="h-4 w-4" />
+                                <span className="text-sm font-medium">在截图上标注坐标</span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={loadScreenshot}
+                                disabled={isLoadingScreenshot}
+                              >
+                                {isLoadingScreenshot ? '加载中...' : '获取锁屏截图'}
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              提示: 请先将设备进入锁屏界面，然后获取截图并点击标注坐标
+                            </p>
+
+                            {screenshotUrl && (
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
+                                  <Button
+                                    type="button"
+                                    variant={markingMode === 'start' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setMarkingMode(markingMode === 'start' ? null : 'start')}
+                                  >
+                                    标注起点
+                                  </Button>
+                                  {configFormData.unlock_type === 'swipe' && (
+                                    <Button
+                                      type="button"
+                                      variant={markingMode === 'end' ? 'default' : 'outline'}
+                                      size="sm"
+                                      onClick={() => setMarkingMode(markingMode === 'end' ? null : 'end')}
+                                    >
+                                      标注终点
+                                    </Button>
+                                  )}
+                                </div>
+                                {markingMode && (
+                                  <p className="text-sm text-primary">
+                                    请在下方截图上点击选择{markingMode === 'start' ? '起点' : '终点'}位置
+                                  </p>
+                                )}
+                                <div className="relative border rounded-lg overflow-hidden bg-muted">
+                                  <img
+                                    src={screenshotUrl}
+                                    alt="设备截图"
+                                    className={`max-w-full h-auto max-h-[400px] object-contain mx-auto ${markingMode ? 'cursor-crosshair' : ''
+                                      }`}
+                                    onClick={handleScreenshotClick}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+
+                      {/* 测试解锁按钮 */}
                       <Button
                         type="button"
                         variant="outline"
@@ -841,89 +1138,47 @@ function DeviceSettings() {
                             toast.error('请先选择解锁方式')
                             return
                           }
-                          if (configFormData.unlock_start_x === undefined || configFormData.unlock_start_y === undefined) {
-                            toast.error('请先设置起点坐标')
-                            return
-                          }
-                          testUnlockMutation.mutate({
-                            serial: selectedDeviceSerial,
-                            data: {
-                              unlock_type: configFormData.unlock_type,
-                              unlock_start_x: configFormData.unlock_start_x,
-                              unlock_start_y: configFormData.unlock_start_y,
-                              unlock_end_x: configFormData.unlock_end_x,
-                              unlock_end_y: configFormData.unlock_end_y,
-                              unlock_duration: configFormData.unlock_duration ?? 300,
+                          if (configFormData.unlock_type === 'password') {
+                            if (!configFormData.unlock_password) {
+                              toast.error('请先输入解锁密码')
+                              return
                             }
-                          })
+                            testUnlockMutation.mutate({
+                              serial: selectedDeviceSerial,
+                              data: {
+                                unlock_type: configFormData.unlock_type,
+                                unlock_password: configFormData.unlock_password,
+                                password_swipe_enabled: configFormData.password_swipe_enabled ?? false,
+                                password_swipe_start_x: configFormData.password_swipe_start_x,
+                                password_swipe_start_y: configFormData.password_swipe_start_y,
+                                password_swipe_end_x: configFormData.password_swipe_end_x,
+                                password_swipe_end_y: configFormData.password_swipe_end_y,
+                                password_swipe_duration: configFormData.password_swipe_duration ?? 300,
+                              }
+                            })
+                          } else {
+                            if (configFormData.unlock_start_x === undefined || configFormData.unlock_start_y === undefined) {
+                              toast.error('请先设置起点坐标')
+                              return
+                            }
+                            testUnlockMutation.mutate({
+                              serial: selectedDeviceSerial,
+                              data: {
+                                unlock_type: configFormData.unlock_type,
+                                unlock_start_x: configFormData.unlock_start_x,
+                                unlock_start_y: configFormData.unlock_start_y,
+                                unlock_end_x: configFormData.unlock_end_x,
+                                unlock_end_y: configFormData.unlock_end_y,
+                                unlock_duration: configFormData.unlock_duration ?? 300,
+                              }
+                            })
+                          }
                         }}
                         disabled={testUnlockMutation.isPending}
                       >
                         <Unlock className="h-4 w-4 mr-2" />
                         测试解锁
                       </Button>
-
-                      {/* 截图坐标标注 */}
-                      <div className="space-y-3 border rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <MousePointer className="h-4 w-4" />
-                            <span className="text-sm font-medium">在截图上标注坐标</span>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={loadScreenshot}
-                            disabled={isLoadingScreenshot}
-                          >
-                            {isLoadingScreenshot ? '加载中...' : '获取锁屏截图'}
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          提示: 请先将设备进入锁屏界面，然后获取截图并点击标注坐标
-                        </p>
-
-                        {screenshotUrl && (
-                          <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                variant={markingMode === 'start' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setMarkingMode(markingMode === 'start' ? null : 'start')}
-                              >
-                                标注起点
-                              </Button>
-                              {configFormData.unlock_type === 'swipe' && (
-                                <Button
-                                  type="button"
-                                  variant={markingMode === 'end' ? 'default' : 'outline'}
-                                  size="sm"
-                                  onClick={() => setMarkingMode(markingMode === 'end' ? null : 'end')}
-                                >
-                                  标注终点
-                                </Button>
-                              )}
-                            </div>
-                            {markingMode && (
-                              <p className="text-sm text-primary">
-                                请在下方截图上点击选择{markingMode === 'start' ? '起点' : '终点'}位置
-                              </p>
-                            )}
-                            <div className="relative border rounded-lg overflow-hidden bg-muted">
-                              <img
-                                src={screenshotUrl}
-                                alt="设备截图"
-                                className={`max-w-full h-auto max-h-[400px] object-contain mx-auto ${
-                                  markingMode ? 'cursor-crosshair' : ''
-                                }`}
-                                onClick={handleScreenshotClick}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     </>
                   )}
                 </div>

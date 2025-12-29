@@ -8,12 +8,19 @@ class DeviceConfigBase(BaseModel):
     wake_enabled: bool = True
     wake_command: str | None = None
     unlock_enabled: bool = False
-    unlock_type: Literal["swipe", "longpress"] | None = None
+    unlock_type: Literal["swipe", "longpress", "password"] | None = None
     unlock_start_x: int | None = None
     unlock_start_y: int | None = None
     unlock_end_x: int | None = None
     unlock_end_y: int | None = None
     unlock_duration: int = 300
+    unlock_password: str | None = None
+    password_swipe_enabled: bool = False
+    password_swipe_start_x: int | None = None
+    password_swipe_start_y: int | None = None
+    password_swipe_end_x: int | None = None
+    password_swipe_end_y: int | None = None
+    password_swipe_duration: int = 300
 
 
 class DeviceConfigCreate(DeviceConfigBase):
@@ -24,12 +31,19 @@ class DeviceConfigUpdate(BaseModel):
     wake_enabled: bool | None = None
     wake_command: str | None = None
     unlock_enabled: bool | None = None
-    unlock_type: Literal["swipe", "longpress"] | None = None
+    unlock_type: Literal["swipe", "longpress", "password"] | None = None
     unlock_start_x: int | None = None
     unlock_start_y: int | None = None
     unlock_end_x: int | None = None
     unlock_end_y: int | None = None
     unlock_duration: int | None = None
+    unlock_password: str | None = None
+    password_swipe_enabled: bool | None = None
+    password_swipe_start_x: int | None = None
+    password_swipe_start_y: int | None = None
+    password_swipe_end_x: int | None = None
+    password_swipe_end_y: int | None = None
+    password_swipe_duration: int | None = None
 
 
 class DeviceConfigResponse(DeviceConfigBase):

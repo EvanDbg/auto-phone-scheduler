@@ -28,6 +28,15 @@ class DeviceConfig(Base):
     unlock_end_y: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # 滑动/长按时长 (毫秒)
     unlock_duration: Mapped[int] = mapped_column(Integer, default=300)
+    # 密码解锁的密码
+    unlock_password: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # 密码解锁前上滑配置
+    password_swipe_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    password_swipe_start_x: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    password_swipe_start_y: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    password_swipe_end_x: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    password_swipe_end_y: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    password_swipe_duration: Mapped[int] = mapped_column(Integer, default=300)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(

@@ -173,11 +173,18 @@ export const deviceConfigsApi = {
     api.post<{ success: boolean; message: string }>(`/device-configs/${encodeURIComponent(serial)}/test-wake`, data).then(r => r.data),
   testUnlock: (serial: string, data: {
     unlock_type: string
-    unlock_start_x: number
-    unlock_start_y: number
+    unlock_start_x?: number
+    unlock_start_y?: number
     unlock_end_x?: number
     unlock_end_y?: number
-    unlock_duration: number
+    unlock_duration?: number
+    unlock_password?: string
+    password_swipe_enabled?: boolean
+    password_swipe_start_x?: number
+    password_swipe_start_y?: number
+    password_swipe_end_x?: number
+    password_swipe_end_y?: number
+    password_swipe_duration?: number
   }) =>
     api.post<{ success: boolean; message: string }>(`/device-configs/${encodeURIComponent(serial)}/test-unlock`, data).then(r => r.data),
   lockScreen: (serial: string) =>

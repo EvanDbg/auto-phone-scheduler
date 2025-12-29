@@ -480,6 +480,33 @@ class SchedulerService:
                         str(start_x), str(start_y), str(end_x), str(end_y), str(duration),
                         serial=device_serial
                     )
+                elif config.unlock_type == "password":
+                    if config.unlock_password:
+                        # 先执行上滑操作（如果启用）
+                        if config.password_swipe_enabled:
+                            swipe_start_x = config.password_swipe_start_x or 0
+                            swipe_start_y = config.password_swipe_start_y or 0
+                            swipe_end_x = config.password_swipe_end_x or swipe_start_x
+                            swipe_end_y = config.password_swipe_end_y or swipe_start_y
+                            swipe_duration = config.password_swipe_duration or 300
+                            add_log("正在上滑显示密码输入界面...")
+                            await run_adb(
+                                "shell", "input", "swipe",
+                                str(swipe_start_x), str(swipe_start_y),
+                                str(swipe_end_x), str(swipe_end_y), str(swipe_duration),
+                                serial=device_serial
+                            )
+                            await asyncio.sleep(0.5)
+                        # 输入密码
+                        await run_adb(
+                            "shell", "input", "text", config.unlock_password,
+                            serial=device_serial
+                        )
+                        await asyncio.sleep(0.2)
+                        await run_adb(
+                            "shell", "input", "keyevent", "ENTER",
+                            serial=device_serial
+                        )
 
                 # 等待解锁完成
                 await asyncio.sleep(0.5)

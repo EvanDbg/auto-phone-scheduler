@@ -354,6 +354,13 @@ export function Debug() {
             unlock_end_x: activeDeviceConfig.unlock_end_x ?? undefined,
             unlock_end_y: activeDeviceConfig.unlock_end_y ?? undefined,
             unlock_duration: activeDeviceConfig.unlock_duration ?? 300,
+            unlock_password: activeDeviceConfig.unlock_password ?? undefined,
+            password_swipe_enabled: activeDeviceConfig.password_swipe_enabled ?? false,
+            password_swipe_start_x: activeDeviceConfig.password_swipe_start_x ?? undefined,
+            password_swipe_start_y: activeDeviceConfig.password_swipe_start_y ?? undefined,
+            password_swipe_end_x: activeDeviceConfig.password_swipe_end_x ?? undefined,
+            password_swipe_end_y: activeDeviceConfig.password_swipe_end_y ?? undefined,
+            password_swipe_duration: activeDeviceConfig.password_swipe_duration ?? 300,
           })
           if (!unlockResult.success) {
             setChatItems(prev => [...prev, {
@@ -567,6 +574,13 @@ export function Debug() {
         unlock_end_x: activeDeviceConfig.unlock_end_x ?? undefined,
         unlock_end_y: activeDeviceConfig.unlock_end_y ?? undefined,
         unlock_duration: activeDeviceConfig.unlock_duration ?? 300,
+        unlock_password: activeDeviceConfig.unlock_password ?? undefined,
+        password_swipe_enabled: activeDeviceConfig.password_swipe_enabled ?? false,
+        password_swipe_start_x: activeDeviceConfig.password_swipe_start_x ?? undefined,
+        password_swipe_start_y: activeDeviceConfig.password_swipe_start_y ?? undefined,
+        password_swipe_end_x: activeDeviceConfig.password_swipe_end_x ?? undefined,
+        password_swipe_end_y: activeDeviceConfig.password_swipe_end_y ?? undefined,
+        password_swipe_duration: activeDeviceConfig.password_swipe_duration ?? 300,
       })
       if (result.success) {
         toast.success(result.message)
@@ -613,285 +627,285 @@ export function Debug() {
 
   return (
     <TooltipProvider>
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">调试控制台</h1>
-        <div className="flex items-center gap-2">
-          {activeDevice ? (
-            <>
-              <Badge variant="success" className="flex items-center gap-1">
-                <Smartphone className="h-3 w-3" />
-                {activeDevice.model || activeDevice.serial}
-              </Badge>
-              {/* 屏幕状态显示 */}
-              {screenStatus && (
-                <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge variant={screenStatus.screen_on ? 'secondary' : 'default'} className="flex items-center gap-1">
-                        <Monitor className="h-3 w-3" />
-                        {screenStatus.screen_on ? '亮屏' : '息屏'}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>{screenStatus.screen_on ? '屏幕已亮起' : '屏幕已关闭'}</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge variant={screenStatus.is_locked ? 'destructive' : 'secondary'} className="flex items-center gap-1">
-                        <Lock className="h-3 w-3" />
-                        {screenStatus.is_locked ? '已锁定' : '未锁定'}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>{screenStatus.is_locked ? '设备处于锁屏状态' : '设备已解锁'}</TooltipContent>
-                  </Tooltip>
-                </>
-              )}
-              {/* 设备忙碌状态显示 */}
-              {busyStatus && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant={busyStatus.is_busy ? 'destructive' : 'secondary'}
-                      className={`flex items-center gap-1 ${busyStatus.is_busy ? 'cursor-pointer hover:bg-destructive/80' : ''}`}
-                      onClick={busyStatus.is_busy ? handleReleaseDevice : undefined}
-                    >
-                      <Activity className="h-3 w-3" />
-                      {busyStatus.is_busy ? '忙碌' : '空闲'}
-                      {busyStatus.is_busy && <XCircle className="h-3 w-3 ml-0.5" />}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {busyStatus.is_busy
-                      ? `正在执行: ${busyStatus.task_name || `执行记录 #${busyStatus.execution_id}`}（点击释放）`
-                      : '设备空闲，可以执行任务'
-                    }
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </>
-          ) : (
-            <Badge variant="destructive">未连接设备</Badge>
-          )}
-        </div>
-      </div>
-
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0 overflow-hidden">
-        {/* 左侧 - 对话区域 */}
-        <Card className="flex flex-col min-h-0 h-full overflow-hidden">
-          <CardHeader className="pb-3 shrink-0 border-b">
-            <CardTitle className="text-base">执行步骤</CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-            {chatItems.length === 0 && !isExecuting ? (
-              <div className="text-center text-muted-foreground py-8">
-                发送指令开始调试
-              </div>
-            ) : (
-              chatItems.map(item => (
-                <ChatItemCard key={item.id} item={item} />
-              ))
-            )}
-            {/* 流式输出显示 - 与 ChatItemCard thinking 样式一致 */}
-            {isExecuting && (streamingThinking || streamingAction) && (
-              <div className="flex gap-2">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1 max-w-[85%]">
-                  <div className="text-xs text-muted-foreground mb-1">
-                    Step {currentStreamStepRef.current || 1}
-                  </div>
-                  <div className="p-3 rounded-2xl rounded-tl-sm bg-muted text-sm whitespace-pre-wrap">
-                    {streamingThinking}
-                    {streamingAction && (
-                      <span className="text-muted-foreground">{streamingAction}</span>
-                    )}
-                    <span className="inline-block w-1.5 h-4 bg-foreground/60 ml-0.5 animate-pulse align-middle" />
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* 等待状态（无流式内容时）- 跳动的省略号 */}
-            {isExecuting && !streamingThinking && !streamingAction && (
-              <div className="flex gap-2">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1 max-w-[85%]">
-                  <div className="text-xs text-muted-foreground mb-1">
-                    Step {currentStreamStepRef.current || 1}
-                  </div>
-                  <div className="p-3 rounded-2xl rounded-tl-sm bg-muted text-sm flex items-center gap-0.5">
-                    <span className="inline-block w-1 h-1 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="inline-block w-1 h-1 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="inline-block w-1 h-1 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </CardContent>
-          {/* 输入区域 */}
-          <div className="p-4 border-t shrink-0">
-            <div className="flex gap-2">
-              <Textarea
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="输入指令，如：打开微信..."
-                className="min-h-15 max-h-30 resize-none"
-                disabled={isExecuting || !activeDevice}
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!input.trim() || isExecuting || !activeDevice}
-                className="shrink-0"
-              >
-                {isExecuting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        {/* 右侧 - 实时画面 */}
-        <Card className="flex flex-col min-h-0 h-full overflow-hidden">
-          <CardHeader className="pb-3 shrink-0 border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Smartphone className="h-4 w-4" />
-                实时画面
-              </CardTitle>
-              <div className="flex items-center gap-1">
-                {activeDevice && (
+      <div className="h-full flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">调试控制台</h1>
+          <div className="flex items-center gap-2">
+            {activeDevice ? (
+              <>
+                <Badge variant="success" className="flex items-center gap-1">
+                  <Smartphone className="h-3 w-3" />
+                  {activeDevice.model || activeDevice.serial}
+                </Badge>
+                {/* 屏幕状态显示 */}
+                {screenStatus && (
                   <>
-                    {/* 触控模式开关 */}
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant={touchEnabled ? 'default' : 'ghost'}
-                          size="sm"
-                          onClick={() => setTouchEnabled(!touchEnabled)}
-                        >
-                          <Hand className="h-4 w-4" />
-                        </Button>
+                        <Badge variant={screenStatus.screen_on ? 'secondary' : 'default'} className="flex items-center gap-1">
+                          <Monitor className="h-3 w-3" />
+                          {screenStatus.screen_on ? '亮屏' : '息屏'}
+                        </Badge>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {touchEnabled ? '触控已启用（点击禁用）' : '触控已禁用（点击启用）'}
-                      </TooltipContent>
-                    </Tooltip>
-                    {/* 电源键（亮屏时锁屏，息屏时唤醒） */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={handlePowerKey}>
-                          <Power className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {screenStatus?.screen_on ? '锁定屏幕' : '唤醒屏幕'}
-                      </TooltipContent>
-                    </Tooltip>
-                    {/* 解锁按钮（如果设备有配置、屏幕亮起且处于锁屏状态） */}
-                    {activeDeviceConfig?.unlock_enabled && screenStatus?.screen_on && screenStatus?.is_locked && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="sm" onClick={handleUnlock}>
-                            <Unlock className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>解锁屏幕</TooltipContent>
-                      </Tooltip>
-                    )}
-                    {/* 导航按钮 */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('back')}>
-                          <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>返回</TooltipContent>
+                      <TooltipContent>{screenStatus.screen_on ? '屏幕已亮起' : '屏幕已关闭'}</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('home')}>
-                          <Home className="h-4 w-4" />
-                        </Button>
+                        <Badge variant={screenStatus.is_locked ? 'destructive' : 'secondary'} className="flex items-center gap-1">
+                          <Lock className="h-3 w-3" />
+                          {screenStatus.is_locked ? '已锁定' : '未锁定'}
+                        </Badge>
                       </TooltipTrigger>
-                      <TooltipContent>主页</TooltipContent>
+                      <TooltipContent>{screenStatus.is_locked ? '设备处于锁屏状态' : '设备已解锁'}</TooltipContent>
                     </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('app_switch')}>
-                          <LayoutGrid className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>最近任务</TooltipContent>
-                    </Tooltip>
-                    <Button variant="ghost" size="sm" onClick={() => setStreamKey(k => k + 1)}>
-                      刷新
-                    </Button>
                   </>
                 )}
+                {/* 设备忙碌状态显示 */}
+                {busyStatus && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant={busyStatus.is_busy ? 'destructive' : 'secondary'}
+                        className={`flex items-center gap-1 ${busyStatus.is_busy ? 'cursor-pointer hover:bg-destructive/80' : ''}`}
+                        onClick={busyStatus.is_busy ? handleReleaseDevice : undefined}
+                      >
+                        <Activity className="h-3 w-3" />
+                        {busyStatus.is_busy ? '忙碌' : '空闲'}
+                        {busyStatus.is_busy && <XCircle className="h-3 w-3 ml-0.5" />}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {busyStatus.is_busy
+                        ? `正在执行: ${busyStatus.task_name || `执行记录 #${busyStatus.execution_id}`}（点击释放）`
+                        : '设备空闲，可以执行任务'
+                      }
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </>
+            ) : (
+              <Badge variant="destructive">未连接设备</Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0 overflow-hidden">
+          {/* 左侧 - 对话区域 */}
+          <Card className="flex flex-col min-h-0 h-full overflow-hidden">
+            <CardHeader className="pb-3 shrink-0 border-b">
+              <CardTitle className="text-base">执行步骤</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+              {chatItems.length === 0 && !isExecuting ? (
+                <div className="text-center text-muted-foreground py-8">
+                  发送指令开始调试
+                </div>
+              ) : (
+                chatItems.map(item => (
+                  <ChatItemCard key={item.id} item={item} />
+                ))
+              )}
+              {/* 流式输出显示 - 与 ChatItemCard thinking 样式一致 */}
+              {isExecuting && (streamingThinking || streamingAction) && (
+                <div className="flex gap-2">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 max-w-[85%]">
+                    <div className="text-xs text-muted-foreground mb-1">
+                      Step {currentStreamStepRef.current || 1}
+                    </div>
+                    <div className="p-3 rounded-2xl rounded-tl-sm bg-muted text-sm whitespace-pre-wrap">
+                      {streamingThinking}
+                      {streamingAction && (
+                        <span className="text-muted-foreground">{streamingAction}</span>
+                      )}
+                      <span className="inline-block w-1.5 h-4 bg-foreground/60 ml-0.5 animate-pulse align-middle" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* 等待状态（无流式内容时）- 跳动的省略号 */}
+              {isExecuting && !streamingThinking && !streamingAction && (
+                <div className="flex gap-2">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 max-w-[85%]">
+                    <div className="text-xs text-muted-foreground mb-1">
+                      Step {currentStreamStepRef.current || 1}
+                    </div>
+                    <div className="p-3 rounded-2xl rounded-tl-sm bg-muted text-sm flex items-center gap-0.5">
+                      <span className="inline-block w-1 h-1 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="inline-block w-1 h-1 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="inline-block w-1 h-1 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </CardContent>
+            {/* 输入区域 */}
+            <div className="p-4 border-t shrink-0">
+              <div className="flex gap-2">
+                <Textarea
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="输入指令，如：打开微信..."
+                  className="min-h-15 max-h-30 resize-none"
+                  disabled={isExecuting || !activeDevice}
+                />
+                <Button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isExecuting || !activeDevice}
+                  className="shrink-0"
+                >
+                  {isExecuting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="flex-1 flex items-center justify-center p-4 bg-muted/30 overflow-hidden">
-            {activeDevice ? (
-              useFallback ? (
-                <img
-                  key={streamKey}
-                  src={devicesApi.getStreamUrl(activeDevice.serial)}
-                  alt="设备屏幕"
-                  className="max-h-full w-auto rounded-lg shadow-lg"
-                  style={{ maxWidth: '280px', objectFit: 'contain' }}
-                />
-              ) : (
-                <ScrcpyPlayer
-                  key={streamKey}
-                  deviceId={activeDevice.serial}
-                  className="max-h-full"
-                  onFallback={() => setUseFallback(true)}
-                  fallbackTimeout={8000}
-                  enableTouch={touchEnabled}
-                  onSwipe={handleSwipe}
-                  onTap={handleTap}
-                />
-              )
-            ) : (
-              <div className="text-center text-muted-foreground">
-                <Smartphone className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                <p>未连接设备</p>
-                <p className="text-xs mt-1">请通过 ADB 连接手机</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          </Card>
 
-      {/* 敏感操作确认对话框 */}
-      <AlertDialog open={sensitiveAction !== null} onOpenChange={(open) => !open && handleCancelSensitive()}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              敏感操作确认
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>AI 正在尝试执行以下敏感操作：</p>
-              <p className="font-medium text-foreground bg-muted p-3 rounded-lg">
-                {sensitiveAction?.message}
-              </p>
-              <p className="text-sm">请确认是否允许执行此操作？</p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSensitive}>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSensitive} className="bg-amber-600 hover:bg-amber-700">
-              确认执行
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+          {/* 右侧 - 实时画面 */}
+          <Card className="flex flex-col min-h-0 h-full overflow-hidden">
+            <CardHeader className="pb-3 shrink-0 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Smartphone className="h-4 w-4" />
+                  实时画面
+                </CardTitle>
+                <div className="flex items-center gap-1">
+                  {activeDevice && (
+                    <>
+                      {/* 触控模式开关 */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={touchEnabled ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setTouchEnabled(!touchEnabled)}
+                          >
+                            <Hand className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {touchEnabled ? '触控已启用（点击禁用）' : '触控已禁用（点击启用）'}
+                        </TooltipContent>
+                      </Tooltip>
+                      {/* 电源键（亮屏时锁屏，息屏时唤醒） */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="sm" onClick={handlePowerKey}>
+                            <Power className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {screenStatus?.screen_on ? '锁定屏幕' : '唤醒屏幕'}
+                        </TooltipContent>
+                      </Tooltip>
+                      {/* 解锁按钮（如果设备有配置、屏幕亮起且处于锁屏状态） */}
+                      {activeDeviceConfig?.unlock_enabled && screenStatus?.screen_on && screenStatus?.is_locked && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" onClick={handleUnlock}>
+                              <Unlock className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>解锁屏幕</TooltipContent>
+                        </Tooltip>
+                      )}
+                      {/* 导航按钮 */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('back')}>
+                            <ArrowLeft className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>返回</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('home')}>
+                            <Home className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>主页</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="sm" onClick={() => handleKeyEvent('app_switch')}>
+                            <LayoutGrid className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>最近任务</TooltipContent>
+                      </Tooltip>
+                      <Button variant="ghost" size="sm" onClick={() => setStreamKey(k => k + 1)}>
+                        刷新
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 flex items-center justify-center p-4 bg-muted/30 overflow-hidden">
+              {activeDevice ? (
+                useFallback ? (
+                  <img
+                    key={streamKey}
+                    src={devicesApi.getStreamUrl(activeDevice.serial)}
+                    alt="设备屏幕"
+                    className="max-h-full w-auto rounded-lg shadow-lg"
+                    style={{ maxWidth: '280px', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <ScrcpyPlayer
+                    key={streamKey}
+                    deviceId={activeDevice.serial}
+                    className="max-h-full"
+                    onFallback={() => setUseFallback(true)}
+                    fallbackTimeout={8000}
+                    enableTouch={touchEnabled}
+                    onSwipe={handleSwipe}
+                    onTap={handleTap}
+                  />
+                )
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  <Smartphone className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                  <p>未连接设备</p>
+                  <p className="text-xs mt-1">请通过 ADB 连接手机</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 敏感操作确认对话框 */}
+        <AlertDialog open={sensitiveAction !== null} onOpenChange={(open) => !open && handleCancelSensitive()}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                敏感操作确认
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>AI 正在尝试执行以下敏感操作：</p>
+                <p className="font-medium text-foreground bg-muted p-3 rounded-lg">
+                  {sensitiveAction?.message}
+                </p>
+                <p className="text-sm">请确认是否允许执行此操作？</p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCancelSensitive}>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmSensitive} className="bg-amber-600 hover:bg-amber-700">
+                确认执行
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </TooltipProvider>
   )
 }

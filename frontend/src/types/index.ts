@@ -217,12 +217,19 @@ export interface DeviceConfig {
   wake_enabled: boolean
   wake_command: string | null
   unlock_enabled: boolean
-  unlock_type: 'swipe' | 'longpress' | null
+  unlock_type: 'swipe' | 'longpress' | 'password' | null
   unlock_start_x: number | null
   unlock_start_y: number | null
   unlock_end_x: number | null
   unlock_end_y: number | null
   unlock_duration: number
+  unlock_password: string | null
+  password_swipe_enabled: boolean
+  password_swipe_start_x: number | null
+  password_swipe_start_y: number | null
+  password_swipe_end_x: number | null
+  password_swipe_end_y: number | null
+  password_swipe_duration: number
   created_at: string
   updated_at: string
 }
@@ -232,22 +239,36 @@ export interface DeviceConfigCreate {
   wake_enabled?: boolean
   wake_command?: string
   unlock_enabled?: boolean
-  unlock_type?: 'swipe' | 'longpress'
+  unlock_type?: 'swipe' | 'longpress' | 'password'
   unlock_start_x?: number
   unlock_start_y?: number
   unlock_end_x?: number
   unlock_end_y?: number
   unlock_duration?: number
+  unlock_password?: string
+  password_swipe_enabled?: boolean
+  password_swipe_start_x?: number
+  password_swipe_start_y?: number
+  password_swipe_end_x?: number
+  password_swipe_end_y?: number
+  password_swipe_duration?: number
 }
 
 export interface DeviceConfigUpdate {
   wake_enabled?: boolean
   wake_command?: string
   unlock_enabled?: boolean
-  unlock_type?: 'swipe' | 'longpress'
+  unlock_type?: 'swipe' | 'longpress' | 'password'
   unlock_start_x?: number
   unlock_start_y?: number
   unlock_end_x?: number
   unlock_end_y?: number
   unlock_duration?: number
+  unlock_password?: string
+  password_swipe_enabled?: boolean
+  password_swipe_start_x?: number
+  password_swipe_start_y?: number
+  password_swipe_end_x?: number
+  password_swipe_end_y?: number
+  password_swipe_duration?: number
 }

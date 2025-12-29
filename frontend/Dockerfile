@@ -2,8 +2,14 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# 配置国内镜像源
+RUN npm config set registry https://registry.npmmirror.com
+
 # 安装 pnpm
 RUN npm install -g pnpm
+
+# 配置 pnpm 国内镜像源
+RUN pnpm config set registry https://registry.npmmirror.com
 
 # 复制依赖文件
 COPY package.json pnpm-lock.yaml ./

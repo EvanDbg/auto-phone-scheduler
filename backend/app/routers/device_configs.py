@@ -1,3 +1,8 @@
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -23,12 +28,20 @@ class TestWakeRequest(BaseModel):
 
 
 class TestUnlockRequest(BaseModel):
-    unlock_type: str  # swipe 或 longpress
-    unlock_start_x: int
-    unlock_start_y: int
+    unlock_type: str  # swipe, longpress 或 password
+    unlock_start_x: int | None = None  # 滑动/长按解锁需要
+    unlock_start_y: int | None = None  # 滑动/长按解锁需要
     unlock_end_x: int | None = None  # 滑动解锁需要
     unlock_end_y: int | None = None  # 滑动解锁需要
     unlock_duration: int = 300
+    unlock_password: str | None = None  # 密码解锁需要
+    # 密码解锁前上滑配置
+    password_swipe_enabled: bool = False
+    password_swipe_start_x: int | None = None
+    password_swipe_start_y: int | None = None
+    password_swipe_end_x: int | None = None
+    password_swipe_end_y: int | None = None
+    password_swipe_duration: int = 300
 
 router = APIRouter(prefix="/api/device-configs", tags=["device-configs"])
 
@@ -218,27 +231,65 @@ async def test_wake(device_serial: str, request: TestWakeRequest):
 @router.post("/{device_serial}/test-unlock", response_model=TestResult)
 async def test_unlock(device_serial: str, request: TestUnlockRequest):
     """测试解锁设备（使用表单中的配置值）"""
+    # 调试日志：打印接收到的请求数据
+    logger.info(f"[test_unlock] device_serial={device_serial}")
+    logger.info(f"[test_unlock] request.unlock_type={request.unlock_type}")
+    logger.info(f"[test_unlock] request.unlock_password={'***' if request.unlock_password else None}")
+    logger.info(f"[test_unlock] request.password_swipe_enabled={request.password_swipe_enabled}")
+    logger.info(f"[test_unlock] Full request: {request.model_dump()}")
+    
     try:
-        start_x = request.unlock_start_x
-        start_y = request.unlock_start_y
-        duration = request.unlock_duration
-
-        if request.unlock_type == "swipe":
+        if request.unlock_type == "password":
+            # 密码解锁
+            if not request.unlock_password:
+                logger.warning(f"[test_unlock] Password unlock requested but no password provided!")
+                return TestResult(success=False, message="密码解锁需要提供密码")
+            # 先执行上滑操作（如果启用）
+            if request.password_swipe_enabled:
+                swipe_start_x = request.password_swipe_start_x or 0
+                swipe_start_y = request.password_swipe_start_y or 0
+                swipe_end_x = request.password_swipe_end_x or swipe_start_x
+                swipe_end_y = request.password_swipe_end_y or swipe_start_y
+                swipe_duration = request.password_swipe_duration or 300
+                await run_adb(
+                    "shell", "input", "swipe",
+                    str(swipe_start_x), str(swipe_start_y),
+                    str(swipe_end_x), str(swipe_end_y), str(swipe_duration),
+                    serial=device_serial
+                )
+                await asyncio.sleep(0.5)
+            # 输入密码
+            await run_adb(
+                "shell", "input", "text", request.unlock_password,
+                serial=device_serial
+            )
+            await asyncio.sleep(0.2)
+            await run_adb(
+                "shell", "input", "keyevent", "ENTER",
+                serial=device_serial
+            )
+        elif request.unlock_type == "swipe":
             # 滑动解锁
+            if request.unlock_start_x is None or request.unlock_start_y is None:
+                return TestResult(success=False, message="滑动解锁需要起点坐标")
             if request.unlock_end_x is None or request.unlock_end_y is None:
                 return TestResult(success=False, message="滑动解锁需要终点坐标")
-            end_x = request.unlock_end_x
-            end_y = request.unlock_end_y
             await run_adb(
                 "shell", "input", "swipe",
-                str(start_x), str(start_y), str(end_x), str(end_y), str(duration),
+                str(request.unlock_start_x), str(request.unlock_start_y),
+                str(request.unlock_end_x), str(request.unlock_end_y),
+                str(request.unlock_duration),
                 serial=device_serial
             )
         else:
             # 长按解锁（swipe 同一点）
+            if request.unlock_start_x is None or request.unlock_start_y is None:
+                return TestResult(success=False, message="长按解锁需要起点坐标")
             await run_adb(
                 "shell", "input", "swipe",
-                str(start_x), str(start_y), str(start_x), str(start_y), str(duration),
+                str(request.unlock_start_x), str(request.unlock_start_y),
+                str(request.unlock_start_x), str(request.unlock_start_y),
+                str(request.unlock_duration),
                 serial=device_serial
             )
 
